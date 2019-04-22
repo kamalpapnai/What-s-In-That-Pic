@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageView;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -25,10 +26,13 @@ import static android.os.Environment.DIRECTORY_PICTURES;
 
 public class MainActivity extends Activity {
 
+    public static final String TAG_NAME = MainActivity.class.getSimpleName();
     static final int REQUEST_IMAGE_CAPTURE=1;
+    static final String GET_IMAGE="getimage";
     String currentPhotoPath;
     private ImageView imageView;
     private Uri getPhotoURI;
+    private Bitmap bitmapImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,7 +42,26 @@ public class MainActivity extends Activity {
         imageView = (ImageView)findViewById(R.id.imageView);
 
         dispatchTakePictureIntent();
+
     }
+
+    private void sendBitmap(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                bitmapImage.compress(Bitmap.CompressFormat.JPEG,100,stream);
+                byte[] byteArray = stream.toByteArray();
+                Log.d(TAG_NAME,"mainintent");
+
+                Intent goToLabel = new Intent(MainActivity.this,LabelActivity.class);
+                goToLabel.putExtra(GET_IMAGE,byteArray);
+                startActivity(goToLabel);
+            }
+        }).start();
+    }
+
+
 
 
     private void dispatchTakePictureIntent()
@@ -53,12 +76,13 @@ public class MainActivity extends Activity {
                 photoFile = createImageFile();
             }
             catch(IOException ex){
-                Log.d("key",ex.toString());
+                Log.d(TAG_NAME,ex.toString());
             }
             if (photoFile != null) {
                 Uri photoURI = FileProvider.getUriForFile(this,
                         "com.example.android.fileprovider",
                         photoFile);
+
                 getPhotoURI = photoURI;
                 takePicture.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
                 startActivityForResult(takePicture, REQUEST_IMAGE_CAPTURE);
@@ -72,17 +96,17 @@ public class MainActivity extends Activity {
 
             if (resultCode == RESULT_OK && requestCode==REQUEST_IMAGE_CAPTURE)
             {
-                Log.d("key","Got Data");
+                Log.d(TAG_NAME,"Got Data");
                 try {
                     Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),getPhotoURI);
                     if(bitmap!=null){
-                        Log.d("key","Got Bitmap");
+                        Log.d(TAG_NAME,"Got Bitmap");
                         setPic();
                     }
 
                 } catch (IOException e) {
                     e.printStackTrace();
-                    Log.d("key","Image not found from uri");
+                    Log.d(TAG_NAME,"Image not found from uri");
                 }
             }
 
@@ -147,8 +171,11 @@ public class MainActivity extends Activity {
         bmOptions.inSampleSize =4;
         bmOptions.inPurgeable = true;
 
-        Bitmap bitmap = BitmapFactory.decodeFile(currentPhotoPath, bmOptions);
-        imageView.setImageBitmap(bitmap);
-        galleryAddPic();
+        bitmapImage = BitmapFactory.decodeFile(currentPhotoPath, bmOptions);
+        imageView.setImageBitmap(bitmapImage);
+
+        sendBitmap();
     }
+
+
 }
